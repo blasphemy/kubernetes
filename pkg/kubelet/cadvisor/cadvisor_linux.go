@@ -21,6 +21,7 @@ package cadvisor
 import (
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 	"time"
@@ -72,7 +73,7 @@ func init() {
 }
 
 // Creates a cAdvisor and exports its API on the specified port if port > 0.
-func New(port uint, runtime string) (Interface, error) {
+func New(address net.IP, port uint, runtime string) (Interface, error) {
 	sysFs, err := sysfs.NewRealSysFs()
 	if err != nil {
 		return nil, err
@@ -89,7 +90,7 @@ func New(port uint, runtime string) (Interface, error) {
 		Manager: m,
 	}
 
-	err = cadvisorClient.exportHTTP(port)
+	err = cadvisorClient.exportHTTP(address, port)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,7 @@ func (cc *cadvisorClient) Start() error {
 	return cc.Manager.Start()
 }
 
-func (cc *cadvisorClient) exportHTTP(port uint) error {
+func (cc *cadvisorClient) exportHTTP(address net.IP, port uint) error {
 	// Register the handlers regardless as this registers the prometheus
 	// collector properly.
 	mux := http.NewServeMux()
@@ -125,7 +126,7 @@ func (cc *cadvisorClient) exportHTTP(port uint) error {
 	// Only start the http server if port > 0
 	if port > 0 {
 		serv := &http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
+			Addr:    fmt.Sprintf("%s:%d", address.String(), port),
 			Handler: mux,
 		}
 
